@@ -294,7 +294,7 @@ export function getPreset(id) {
 
 /* --------------------------- custom presets --------------------------- */
 
-export const CUSTOM_PRESETS_KEY = 'arbor-custom-presets-v1';
+export const CUSTOM_PRESETS_KEY = 'canopytree-custom-presets-v1';
 
 const CUSTOM_ID_PATTERN = /^custom-[a-z0-9-]+$/;
 
@@ -398,7 +398,7 @@ export function saveCustomPresets(presets) {
 export function serializePresets(presets) {
   return `${JSON.stringify(
     {
-      format: 'arbor-presets',
+      format: 'canopytree-presets',
       version: 1,
       presets: presets.map((preset) => ({
         name: preset.name,

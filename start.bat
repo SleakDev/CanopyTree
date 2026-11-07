@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title Arbor - Tree Studio
+title CanopyTree - Tree Studio
 cd /d "%~dp0"
 
 rem If the studio is already running, just open it.
@@ -25,6 +25,6 @@ exit /b 0
 
 :error
 echo.
-echo Could not start Arbor. Make sure Node.js is installed and available on PATH.
+echo Could not start CanopyTree. Make sure Node.js is installed and available on PATH.
 pause
 exit /b 1

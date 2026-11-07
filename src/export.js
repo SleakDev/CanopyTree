@@ -98,7 +98,7 @@ export async function exportTreeGLB(tree) {
   if (!tree) throw new Error('There is no tree to export');
 
   const group = new THREE.Group();
-  group.name = 'ArborTree';
+  group.name = 'CanopyTree';
 
   // Preview modes mutate the live materials in place. Restore the authored
   // color and maps on the clones so a GLB never bakes gray or wireframe.
@@ -143,8 +143,8 @@ export async function exportTreeGLB(tree) {
   coreMesh.name = 'CanopyCore';
   group.add(coreMesh);
 
-  group.userData.arbor = {
-    generatedWith: 'Arbor tree studio',
+  group.userData.canopyTree = {
+    generatedWith: 'CanopyTree studio',
     leaves: tree.stats.leaves,
     rosettes: tree.stats.rosettes,
   };

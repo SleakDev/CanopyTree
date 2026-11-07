@@ -1,6 +1,6 @@
 # AGENTS.md — Project Guidance
 
-Guidance for AI coding agents and contributors working on **Arbor**, a procedural
+Guidance for AI coding agents and contributors working on **CanopyTree**, a procedural
 stylized tree studio.
 
 ## Project at a glance
@@ -122,7 +122,7 @@ handled separately because it only toggles visibility.
 `Hide leaves`, `Hide branches`, `Gray`, `Wireframe`, and `Show voxel grid` are inspection
 aids only.
 
-- They live in the `view` object (`arbor-view-v1`), separate from `state.params`.
+- They live in the `view` object (`canopytree-view-v1`), separate from `state.params`.
 - They are excluded from share URLs and saved presets.
 - Exports run through `withNaturalPreview()` so the authored materials, full foliage,
   and remeshed bark are used, never the diagnostic preview.
@@ -206,7 +206,7 @@ do not reintroduce viewport-dependent output.
 ### 8. Responsive UI
 
 - Desktop panel is a fixed side panel. Collapsing it reveals the floating **Tune**
-  button. The state is persisted in `arbor-panel-collapsed`.
+  button. The state is persisted in `canopytree-panel-collapsed`.
 - At `max-width: 1120px`, the panel becomes a bottom sheet. The sheet uses
   `z-index: 31`, above the `.mobile-scrim` at `30`, so it cannot be dimmed or blocked
   by its own scrim.
@@ -223,11 +223,11 @@ Browser-local keys and their owners:
 
 | Key | Contents |
 | --- | --- |
-| `arbor-view-v1` | Preview modes: hide leaves/branches, shading. |
-| `arbor-theme` | Light/dark interface theme. |
-| `arbor-panel-collapsed` | Desktop panel collapsed / mobile sheet state. |
-| `arbor-looks-collapsed` | Looks rail collapsed state. |
-| `arbor-custom-presets-v1` | Saved custom presets with thumbnails. |
+| `canopytree-view-v1` | Preview modes: hide leaves/branches, shading. |
+| `canopytree-theme` | Light/dark interface theme. |
+| `canopytree-panel-collapsed` | Desktop panel collapsed / mobile sheet state. |
+| `canopytree-looks-collapsed` | Looks rail collapsed state. |
+| `canopytree-custom-presets-v1` | Saved custom presets with thumbnails. |
 
 Share links use the URL hash (`encodeState` / `decodeState`, version `v: 1`) and only
 encode non-default parameters plus the seed. Treat that schema as a compatibility
@@ -330,7 +330,7 @@ Run before finishing any non-trivial change:
 
 ## Dev hooks
 
-In dev builds only, `window.__arbor` exposes:
+In dev builds only, `window.__canopy` exposes:
 
 - `viewer` — scene, renderer, camera, controls, capture.
 - `tree` — current generated tree (bark, foliage, bounds, stats).
@@ -345,9 +345,9 @@ In dev builds only, `window.__arbor` exposes:
 Example checks:
 
 ```js
-__arbor.rebuild();
-__arbor.export('png', { width: 2048, height: 2048, transparent: false });
-__arbor.tree.stats; // { leaves, rosettes, branches, vertices, triangles, ms }
+__canopy.rebuild();
+__canopy.export('png', { width: 2048, height: 2048, transparent: false });
+__canopy.tree.stats; // { leaves, rosettes, branches, vertices, triangles, ms }
 ```
 
 ## Do not

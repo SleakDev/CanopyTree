@@ -40,7 +40,7 @@ const state = {
   basePresetId: initialPresetId ?? 'reference',
 };
 
-const VIEW_STORAGE_KEY = 'arbor-view-v1';
+const VIEW_STORAGE_KEY = 'canopytree-view-v1';
 
 function normalizeView(input = {}) {
   return {
@@ -68,7 +68,7 @@ try {
   console.error(error);
   viewport.innerHTML = `
     <div class="webgl-error">
-      <h1>Arbor needs WebGL</h1>
+      <h1>CanopyTree needs WebGL</h1>
       <p>This browser could not create a WebGL context. Try a recent version of Chrome, Edge, Firefox, or Safari with hardware acceleration enabled.</p>
     </div>`;
   throw error;
@@ -120,7 +120,7 @@ ui.syncParams(state.params, state.presetId);
 applyBackdrop();
 
 if (import.meta.env.DEV) {
-  window.__arbor = {
+  window.__canopy = {
     get viewer() {
       return viewer;
     },
@@ -215,7 +215,7 @@ async function performRebuild() {
 
     scheduleUrl(true);
     console.info(
-      `[Arbor] ${nextTree.stats.leaves.toLocaleString()} leaves · ${nextTree.stats.branches} limbs · ${Math.round(nextTree.stats.ms)} ms`,
+      `[CanopyTree] ${nextTree.stats.leaves.toLocaleString()} leaves · ${nextTree.stats.branches} limbs · ${Math.round(nextTree.stats.ms)} ms`,
     );
   } catch (error) {
     if (runToken !== buildToken) return;
@@ -534,7 +534,7 @@ function presetFileSlug(name) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 48);
-  return slug || 'arbor-preset';
+  return slug || 'canopytree-preset';
 }
 
 function downloadPresetJson(preset) {
@@ -542,7 +542,7 @@ function downloadPresetJson(preset) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${presetFileSlug(preset.name)}.arbor.json`;
+  link.download = `${presetFileSlug(preset.name)}.canopytree.json`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -721,7 +721,7 @@ async function generateThumbnails() {
 
   let cache = {};
   try {
-    cache = JSON.parse(sessionStorage.getItem('arbor-thumbnails-v3') || '{}');
+    cache = JSON.parse(sessionStorage.getItem('canopytree-thumbnails-v3') || '{}');
   } catch {
     cache = {};
   }
@@ -818,7 +818,7 @@ async function generateThumbnails() {
   }
 
   try {
-    sessionStorage.setItem('arbor-thumbnails-v3', JSON.stringify(cache));
+    sessionStorage.setItem('canopytree-thumbnails-v3', JSON.stringify(cache));
   } catch {
     /* cache is optional */
   }

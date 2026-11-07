@@ -1,4 +1,4 @@
-# Arbor — Procedural Tree Studio
+# CanopyTree — Procedural Tree Studio
 
 A browser-based, deterministic **stylized tree generator** built with three.js and Vite.
 Every tree is produced from a seed plus a small set of shape parameters: buttressed
@@ -246,7 +246,7 @@ src/
 - Default preset builds in roughly 60–160 ms and renders ~4,000–6,000 leaves.
 - Foliage uses `InstancedMesh` (one draw call for all leaves) with `frustumCulled`
   disabled because the instance bounds are large.
-- The dev build exposes `window.__arbor` with `viewer`, `tree`, `params`, `state`,
+- The dev build exposes `window.__canopy` with `viewer`, `tree`, `params`, `state`,
   `rebuild()`, `frame()`, `render()`, and `look(position, target)` for inspection.
 - Rebuilds are scheduled with `setTimeout` rather than `requestAnimationFrame`, so
   generation still completes when the tab is backgrounded.

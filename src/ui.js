@@ -117,7 +117,7 @@ export function createUI(options) {
   const themeSwatchUpdates = [];
   let theme = 'light';
   try {
-    const storedTheme = localStorage.getItem('arbor-theme');
+    const storedTheme = localStorage.getItem('canopytree-theme');
     if (storedTheme === 'dark' || storedTheme === 'light') theme = storedTheme;
   } catch {
     /* storage can be unavailable */
@@ -132,12 +132,12 @@ export function createUI(options) {
   let panelCollapsed = false;
   let looksCollapsed = false;
   try {
-    panelCollapsed = localStorage.getItem('arbor-panel-collapsed') === '1';
+    panelCollapsed = localStorage.getItem('canopytree-panel-collapsed') === '1';
   } catch {
     /* storage can be unavailable */
   }
   try {
-    looksCollapsed = localStorage.getItem('arbor-looks-collapsed') === '1';
+    looksCollapsed = localStorage.getItem('canopytree-looks-collapsed') === '1';
   } catch {
     /* storage can be unavailable */
   }
@@ -596,7 +596,7 @@ export function createUI(options) {
     dom.themeButton?.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
     for (const paintSwatch of themeSwatchUpdates) paintSwatch();
     try {
-      localStorage.setItem('arbor-theme', theme);
+      localStorage.setItem('canopytree-theme', theme);
     } catch {
       /* storage can be unavailable */
     }
@@ -656,7 +656,7 @@ export function createUI(options) {
     dom.looksCollapse?.setAttribute('aria-label', label);
     if (dom.looksCollapse) dom.looksCollapse.title = label;
     try {
-      localStorage.setItem('arbor-looks-collapsed', collapsed ? '1' : '0');
+      localStorage.setItem('canopytree-looks-collapsed', collapsed ? '1' : '0');
     } catch {
       /* storage can be unavailable */
     }
@@ -670,7 +670,7 @@ export function createUI(options) {
     }
     document.body.classList.toggle('panel-collapsed', collapsed);
     try {
-      localStorage.setItem('arbor-panel-collapsed', collapsed ? '1' : '0');
+      localStorage.setItem('canopytree-panel-collapsed', collapsed ? '1' : '0');
     } catch {
       /* storage can be unavailable */
     }
@@ -685,7 +685,7 @@ export function createUI(options) {
     document.body.classList.add('panel-open');
     document.body.classList.remove('panel-collapsed');
     try {
-      localStorage.setItem('arbor-panel-collapsed', '0');
+      localStorage.setItem('canopytree-panel-collapsed', '0');
     } catch {
       /* storage can be unavailable */
     }
@@ -1062,12 +1062,12 @@ export function createUI(options) {
             height: dimensions.height,
             transparent,
           });
-          const filename = `arbor-${seed}-${stamp}.png`;
+          const filename = `canopytree-${seed}-${stamp}.png`;
           downloadDataUrl(dataUrl, filename);
           showToast(`PNG saved · ${dimensions.width} × ${dimensions.height}`);
         } else {
           const blob = await onExport('glb', {});
-          const filename = `arbor-${seed}-${stamp}.glb`;
+          const filename = `canopytree-${seed}-${stamp}.glb`;
           downloadBlob(blob, filename);
           showToast('3D model saved');
         }
