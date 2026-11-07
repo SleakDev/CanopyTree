@@ -20,6 +20,9 @@ import {
 import { randomSeed } from './rng.js';
 
 const fromUrl = decodeState(window.location.hash.slice(1));
+// A shared link loads its state into the studio, then the hash is stripped so
+// the address bar keeps the clean site URL.
+clearUrlState();
 const reference = getPreset('reference');
 let customPresets = loadCustomPresets();
 
@@ -82,7 +85,6 @@ let rebuildTimer = null;
 let pendingFrame = false;
 let pendingGust = false;
 let buildToken = 0;
-let urlTimer = null;
 let pendingPresetThumbnail = null;
 
 const ui = createUI({
@@ -94,11 +96,7 @@ const ui = createUI({
   onPresetSelect: (id) => applyPreset(id),
   onSurprise: surprise,
   onReset: resetToBase,
-  onShare: async () => {
-    const url = buildShareUrl(state.params, state.presetId);
-    window.history.replaceState(null, '', url);
-    return url;
-  },
+  onShare: async () => buildShareUrl(state.params, state.presetId),
   onExport: exportCurrent,
   onToggleTurntable: (enabled) => viewer.setAutoRotate(enabled),
   onToggleHidden: () => {},
@@ -213,7 +211,6 @@ async function performRebuild() {
 
     if (withGust) viewer.triggerGust();
 
-    scheduleUrl(true);
     console.info(
       `[CanopyTree] ${nextTree.stats.leaves.toLocaleString()} leaves · ${nextTree.stats.branches} limbs · ${Math.round(nextTree.stats.ms)} ms`,
     );
@@ -240,7 +237,6 @@ function handleSeedChange(seed) {
   }
   if (state.presetId) state.basePresetId = state.presetId;
   state.params.seed = seed;
-  scheduleUrl();
   scheduleRebuild({ frame: false, delay: 30 });
 }
 
@@ -256,33 +252,27 @@ function handleParamChange(key, value, phase) {
 
   if (key === 'wind') {
     viewer.setWind(value);
-    scheduleUrl();
     return;
   }
   if (key === 'sunAzimuth' || key === 'sunElevation' || key === 'sunIntensity') {
     applySun();
-    scheduleUrl();
     return;
   }
   if (key === 'backdrop') {
     applyBackdrop();
-    scheduleUrl();
     return;
   }
   if (key === 'quality') {
-    scheduleUrl();
     scheduleRebuild({ frame: false, delay: 60 });
     return;
   }
   if (key === 'voxelPreview') {
     applyView(currentTree);
     viewer.renderOnce();
-    scheduleUrl();
     return;
   }
   // The voxel pass is expensive; wait for the slider release before rebuilding.
   if ((key === 'voxelDepth' || key === 'voxelResolution' || key === 'voxelMeshDetail') && phase === 'live') {
-    scheduleUrl();
     return;
   }
 
@@ -291,7 +281,6 @@ function handleParamChange(key, value, phase) {
     state.presetId = null;
   }
   ui.setActivePreset(null);
-  scheduleUrl();
   scheduleRebuild({ frame: false, delay: phase === 'live' ? 110 : 55 });
 }
 
@@ -457,7 +446,6 @@ function applyPreset(id) {
   viewer.setWind(state.params.wind);
   applySun();
   ui.syncParams(state.params, state.presetId);
-  scheduleUrl();
   scheduleRebuild({ frame: true, gust: true, delay: 0 });
 }
 
@@ -562,7 +550,6 @@ function saveCustomPreset(name, { download = false } = {}) {
   state.basePresetId = preset.id;
   ui.setCustomPresets(customPresets);
   ui.setActivePreset(preset.id);
-  scheduleUrl(true);
   if (download) downloadPresetJson(preset);
   return preset;
 }
@@ -591,7 +578,6 @@ function deleteCustomPreset(id) {
   persistCustomPresets();
   if (state.presetId === id) {
     state.presetId = null;
-    scheduleUrl();
   }
   if (state.basePresetId === id) state.basePresetId = 'reference';
   ui.setCustomPresets(customPresets);
@@ -625,21 +611,20 @@ function surprise() {
   viewer.setWind(params.wind);
   applySun();
   ui.syncParams(params, null);
-  scheduleUrl();
   scheduleRebuild({ frame: true, gust: true, delay: 0 });
 }
 
 /* -------------------------------------------------------------------- url */
 
-function scheduleUrl(immediate = false) {
-  clearTimeout(urlTimer);
-  const update = () => {
-    const url = buildShareUrl(state.params, state.presetId);
-    window.history.replaceState(null, '', url);
-    lastAppliedHash = window.location.hash.slice(1);
-  };
-  if (immediate) update();
-  else urlTimer = setTimeout(update, 320);
+/**
+ * The studio no longer mirrors its parameters into the address bar. Shared
+ * links still carry the encoded state in the hash, but once applied the hash is
+ * removed so the URL stays on the clean site address. The Share button builds
+ * a fresh link on demand.
+ */
+function clearUrlState() {
+  if (!window.location.hash) return;
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
 }
 
 /* ------------------------------------------------------------ interactions */
@@ -662,10 +647,8 @@ viewer.renderer.domElement.addEventListener('pointercancel', () => {
 window.addEventListener('hashchange', () => {
   // A pasted share link should load without a manual refresh.
   const next = decodeState(window.location.hash.slice(1));
+  clearUrlState();
   if (!next) return;
-  const nextHash = window.location.hash.slice(1);
-  if (nextHash === lastAppliedHash) return;
-  lastAppliedHash = nextHash;
 
   state.params = { ...next.params };
   state.presetId = findPreset(next.presetId) ? next.presetId : null;
@@ -676,8 +659,6 @@ window.addEventListener('hashchange', () => {
   ui.syncParams(state.params, state.presetId);
   scheduleRebuild({ frame: true, gust: true, delay: 0 });
 });
-
-let lastAppliedHash = window.location.hash.slice(1);
 
 /* -------------------------------------------------------------- thumbnails */
 
@@ -833,6 +814,5 @@ async function generateThumbnails() {
 
 /* ------------------------------------------------------------------- boot */
 
-scheduleUrl(true);
 scheduleRebuild({ frame: true, delay: 0 });
 window.setTimeout(generateThumbnails, 900);

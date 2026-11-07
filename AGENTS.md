@@ -230,8 +230,11 @@ Browser-local keys and their owners:
 | `canopytree-custom-presets-v1` | Saved custom presets with thumbnails. |
 
 Share links use the URL hash (`encodeState` / `decodeState`, version `v: 1`) and only
-encode non-default parameters plus the seed. Treat that schema as a compatibility
-surface; bump the version if the payload format changes.
+encode non-default parameters plus the seed. The app does **not** mirror state into
+the address bar while the user tunes; `buildShareUrl` is called only from the Share
+action, and an applied hash is stripped with `history.replaceState` so the URL stays
+clean. Treat that schema as a compatibility surface; bump the version if the payload
+format changes.
 
 ### 10. Rendering and performance
 

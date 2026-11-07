@@ -25,7 +25,8 @@ studio backdrop. Look, tune, share, and export it as PNG or GLB.
   or Match view), with an optional transparent background, plus binary glTF (`.glb`)
   with baked leaf instances.
 - **Share links** — the full parameter state is encoded in the URL hash, so a copied
-  link reproduces the exact tree.
+  link reproduces the exact tree. The address bar is never updated while you tune,
+  and an opened share link is cleaned back to the site URL after it loads.
 - **View settings** — hide the foliage or the wood to inspect structure, or switch the
   stage to flat gray or wireframe shading. These are preview-only and never affect
   exports, presets, or share links.
@@ -86,7 +87,9 @@ to `127.0.0.1:5173`.
 - **Theme** — the sun/moon button flips the interface and the canvas between light and
   dark. Each backdrop has a light and a dark palette, so the stage follows the
   surrounding chrome; the choice is remembered in the browser.
-- **Share** — copies a URL containing the seed and every non-default parameter.
+- **Share** — copies a URL containing the seed and every non-default parameter. The
+  address bar itself stays on the clean site URL; the encoded state is only written
+  into the link that gets copied.
 - **Export** — PNG renders at a fixed standard size: Square 1024/2048/4096,
   16:9 1920×1080 / 2560×1440 / 3840×2160, or Match view (fixed width, current viewport
   aspect). Square 2048×2048 is the default. GLB exports the tree geometry and
