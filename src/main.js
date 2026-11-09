@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { inject } from '@vercel/analytics';
 import { createViewer } from './scene.js';
 import { createUI } from './ui.js';
 import { generateTree, disposeTree } from './tree/generate.js';
@@ -18,6 +19,9 @@ import {
   serializePresets,
 } from './state.js';
 import { randomSeed } from './rng.js';
+
+// Initialize Vercel Web Analytics
+inject();
 
 const fromUrl = decodeState(window.location.hash.slice(1));
 // A shared link loads its state into the studio, then the hash is stripped so
