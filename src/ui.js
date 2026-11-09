@@ -3,7 +3,6 @@ import {
   PARAM_GROUPS,
   PARAM_META,
   PRESETS,
-  QUICK_CONTROLS,
   clampParam,
 } from './state.js';
 import { randomSeed, sanitizeSeed } from './rng.js';
@@ -71,12 +70,16 @@ export function createUI(options) {
     panelScroll: document.getElementById('panel-scroll'),
     panelClose: document.getElementById('panel-close'),
     panelReset: document.getElementById('panel-reset'),
-    hideLeaves: document.getElementById('hide-leaves'),
-    hideBranches: document.getElementById('hide-branches'),
-    viewModes: document.getElementById('view-modes'),
+    viewControls: document.getElementById('view-controls'),
+    viewCollapse: document.getElementById('view-collapse'),
+    viewVisibility: document.getElementById('view-visibility-button'),
+    viewShading: document.getElementById('view-shading-button'),
+    viewVisibilityMenu: document.getElementById('view-visibility-menu'),
+    viewShadingMenu: document.getElementById('view-shading-menu'),
+    viewLeaves: document.getElementById('view-leaves'),
+    viewBranches: document.getElementById('view-branches'),
     looks: document.getElementById('looks'),
     looksCollapse: document.getElementById('looks-collapse'),
-    quick: document.getElementById('quick-controls'),
     advancedToggle: document.getElementById('advanced-toggle'),
     advancedBody: document.getElementById('advanced-body'),
     tabs: document.getElementById('param-tabs'),
@@ -308,13 +311,31 @@ export function createUI(options) {
   }
 
   function paintViewControls() {
-    dom.hideLeaves?.setAttribute('aria-pressed', viewState.hideLeaves ? 'true' : 'false');
-    dom.hideBranches?.setAttribute('aria-pressed', viewState.hideBranches ? 'true' : 'false');
-    for (const button of dom.viewModes?.querySelectorAll('button') ?? []) {
+    if (dom.viewLeaves) dom.viewLeaves.checked = !viewState.hideLeaves;
+    if (dom.viewBranches) dom.viewBranches.checked = !viewState.hideBranches;
+    dom.viewVisibility?.classList.toggle('is-active', viewState.hideLeaves || viewState.hideBranches);
+    dom.viewShading?.classList.toggle('is-active', viewState.shading !== 'natural');
+    for (const button of dom.viewShadingMenu?.querySelectorAll('[data-shading]') ?? []) {
       const active = button.dataset.shading === viewState.shading;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
+  }
+
+  function setViewMenu(menu) {
+    for (const [panel, trigger] of [
+      [dom.viewVisibilityMenu, dom.viewVisibility],
+      [dom.viewShadingMenu, dom.viewShading],
+    ]) {
+      if (!panel) continue;
+      const open = panel === menu && panel.hidden;
+      panel.hidden = !open;
+      trigger?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+  }
+
+  function closeViewMenus() {
+    setViewMenu(null);
   }
 
   function setView(next) {
@@ -326,10 +347,6 @@ export function createUI(options) {
   paintViewControls();
 
   /* ---------------------------------------------------------- build panels */
-
-  for (const key of QUICK_CONTROLS) {
-    dom.quick.appendChild(makeControl(key));
-  }
 
   for (const group of PARAM_GROUPS) {
     const tab = document.createElement('button');
@@ -572,9 +589,9 @@ export function createUI(options) {
 
   /* -------------------------------------------------------------- advanced */
 
-  // Start with the advanced section closed; the quick controls carry the look.
-  dom.advancedToggle.setAttribute('aria-expanded', 'false');
-  dom.advancedBody.hidden = true;
+  // The panel now holds only the advanced controls, so start them expanded.
+  dom.advancedToggle.setAttribute('aria-expanded', 'true');
+  dom.advancedBody.hidden = false;
 
   /* ------------------------------------------------------------- chrome ops */
 
@@ -619,16 +636,60 @@ export function createUI(options) {
     openHelp();
   });
 
-  dom.hideLeaves?.addEventListener('click', () => {
-    setView({ hideLeaves: !viewState.hideLeaves });
+  function setViewCollapsed(collapsed) {
+    dom.viewControls?.classList.toggle('is-collapsed', collapsed);
+    if (!dom.viewCollapse) return;
+    const label = collapsed ? 'Expand view controls' : 'Collapse view controls';
+    dom.viewCollapse.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    dom.viewCollapse.setAttribute('aria-label', label);
+    dom.viewCollapse.setAttribute('title', label);
+    if (collapsed) closeViewMenus();
+  }
+
+  dom.viewCollapse?.addEventListener('click', () => {
+    setViewCollapsed(!dom.viewControls?.classList.contains('is-collapsed'));
   });
-  dom.hideBranches?.addEventListener('click', () => {
-    setView({ hideBranches: !viewState.hideBranches });
+
+  // Start folded so the View pill stays out of the way until it is needed.
+  setViewCollapsed(true);
+
+  dom.viewVisibility?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setViewMenu(dom.viewVisibilityMenu);
   });
-  dom.viewModes?.addEventListener('click', (event) => {
+  dom.viewShading?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setViewMenu(dom.viewShadingMenu);
+  });
+
+  dom.viewLeaves?.addEventListener('change', () => {
+    setView({ hideLeaves: !dom.viewLeaves.checked });
+  });
+  dom.viewBranches?.addEventListener('change', () => {
+    setView({ hideBranches: !dom.viewBranches.checked });
+  });
+  dom.viewShadingMenu?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-shading]');
     if (!button) return;
     setView({ shading: button.dataset.shading });
+    closeViewMenus();
+    dom.viewShading?.focus({ preventScroll: true });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.view-controls')) closeViewMenus();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const openTrigger = !dom.viewVisibilityMenu?.hidden
+      ? dom.viewVisibility
+      : !dom.viewShadingMenu?.hidden
+        ? dom.viewShading
+        : null;
+    if (!openTrigger) return;
+    closeViewMenus();
+    openTrigger.focus({ preventScroll: true });
   });
 
   dom.looksCollapse?.addEventListener('click', () => setLooksCollapsed(!looksCollapsed));
@@ -719,7 +780,16 @@ export function createUI(options) {
   }
 
   hintTimer = setTimeout(dismissHint, 10000);
-  document.getElementById('viewport').addEventListener('pointerdown', dismissHint, { once: true });
+  // Let the hint stay readable while the user starts orbiting. The first canvas
+  // interaction starts a five-second grace period instead of hiding it instantly.
+  document.getElementById('viewport').addEventListener(
+    'pointerdown',
+    () => {
+      if (hintTimer) clearTimeout(hintTimer);
+      hintTimer = setTimeout(dismissHint, 5000);
+    },
+    { once: true },
+  );
 
   /* --------------------------------------------------------------- overlays */
 
@@ -827,7 +897,7 @@ export function createUI(options) {
       ['Hide branches', ['B']],
       ['Gray shading', ['G']],
       ['Wireframe', ['W']],
-      ['Switch looks', ['1', '–', '6']],
+      ['Switch looks', ['1', '–', '7']],
       ['Turntable', ['T']],
       ['Seed history', ['Alt', '← / →']],
     ];
@@ -868,12 +938,13 @@ export function createUI(options) {
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'export-title');
 
-    const header = modalHeader('Export', 'Take it with you', 'Rendered from the current camera angle.');
+    const header = modalHeader('Export', 'Take it with you', 'Rendered from the current camera angle, or centered on the tree.');
     header.querySelector('h3').id = 'export-title';
     modal.appendChild(header);
 
     let format = 'png';
     let orientation = 'square';
+    let framing = 'current';
     let sizeIndex = 1;
     let transparent = false;
     let busy = false;
@@ -895,6 +966,13 @@ export function createUI(options) {
           <button type="button" data-orientation="view">Match view</button>
           <button type="button" data-orientation="square" class="is-active">Square</button>
           <button type="button" data-orientation="wide">16:9</button>
+        </div>
+      </div>
+      <div class="option-block">
+        <div class="option-label"><span>Framing</span><span class="small-note">PNG only</span></div>
+        <div class="segmented" data-framing-group>
+          <button type="button" data-framing="current" class="is-active">Current view</button>
+          <button type="button" data-framing="center">Center tree</button>
         </div>
       </div>
       <div class="option-block">
@@ -943,7 +1021,7 @@ export function createUI(options) {
 
     const fine = document.createElement('p');
     fine.className = 'fine-print';
-    fine.textContent = 'PNG renders at a fixed pixel size. Square and 16:9 keep the tree vertically framed; Match view uses the current viewport aspect. GLB contains the tree only, not the studio floor.';
+    fine.textContent = 'PNG renders at a fixed pixel size. Square and 16:9 keep the tree vertically framed; Match view uses the current viewport aspect. Center tree frames the tree like the F key, then restores your live view. GLB contains the tree only, not the studio floor.';
     modal.appendChild(fine);
 
     const viewportSize = () => {
@@ -980,7 +1058,7 @@ export function createUI(options) {
     const updateSummary = () => {
       if (format === 'png') {
         const { width, height } = outputSize();
-        summary.innerHTML = `<span>Output</span><strong>${numberFormat.format(width)} × ${numberFormat.format(height)} px</strong>`;
+        summary.innerHTML = `<span>Output</span><strong>${numberFormat.format(width)} × ${numberFormat.format(height)} px${framing === 'center' ? ' · centered' : ''}</strong>`;
       } else {
         summary.innerHTML = `<span>Foliage</span><strong>${numberFormat.format(stats.leaves)} leaves · ${numberFormat.format(stats.branches)} limbs</strong>`;
       }
@@ -990,6 +1068,9 @@ export function createUI(options) {
       const labels = sizeLabels();
       for (const button of pngBlock.querySelectorAll('[data-orientation]')) {
         button.classList.toggle('is-active', button.dataset.orientation === orientation);
+      }
+      for (const button of pngBlock.querySelectorAll('[data-framing]')) {
+        button.classList.toggle('is-active', button.dataset.framing === framing);
       }
       for (const button of pngBlock.querySelectorAll('[data-size]')) {
         const index = Number(button.dataset.size);
@@ -1027,6 +1108,13 @@ export function createUI(options) {
       updatePngControls();
     });
 
+    pngBlock.querySelector('[data-framing-group]').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-framing]');
+      if (!button || busy) return;
+      framing = button.dataset.framing;
+      updatePngControls();
+    });
+
     pngBlock.querySelector('[data-size-group]').addEventListener('click', (event) => {
       const button = event.target.closest('[data-size]');
       if (!button || busy) return;
@@ -1061,6 +1149,7 @@ export function createUI(options) {
             width: dimensions.width,
             height: dimensions.height,
             transparent,
+            center: framing === 'center',
           });
           const filename = `canopytree-${seed}-${stamp}.png`;
           downloadDataUrl(dataUrl, filename);
@@ -1391,7 +1480,7 @@ export function createUI(options) {
       showToast(autoRotate ? 'Turntable on' : 'Turntable off');
     } else if (event.key === '?') {
       openHelp();
-    } else if (/^[1-6]$/.test(event.key)) {
+    } else if (/^[1-7]$/.test(event.key)) {
       const preset = PRESETS[Number(event.key) - 1];
       if (preset) onPresetSelect(preset.id);
     } else if (key === 'e') {

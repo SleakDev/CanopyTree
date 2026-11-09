@@ -411,17 +411,59 @@ function withNaturalPreview(task) {
   }
 }
 
+/**
+ * Frame the tree for the export aspect, capture it, then put the user's live
+ * camera back exactly as it was. Unlike pressing F, exporting centered must not
+ * disturb the orbit the user has composed on screen.
+ */
+function captureCenteredPng(options) {
+  const camera = viewer.camera;
+  const controls = viewer.controls;
+  const savedPosition = camera.position.clone();
+  const savedTarget = controls.target.clone();
+  const savedNear = camera.near;
+  const savedFar = camera.far;
+  const savedAspect = camera.aspect;
+  const savedViewBox = viewer.getViewBox().clone();
+
+  try {
+    // frame() measures the horizontal FOV, so match the output aspect first.
+    camera.aspect = options.width / options.height;
+    camera.updateProjectionMatrix();
+    viewer.frame(currentTree.bounds);
+    return viewer.capture({
+      scale: options.scale,
+      width: options.width,
+      height: options.height,
+      transparent: options.transparent,
+    });
+  } finally {
+    camera.position.copy(savedPosition);
+    camera.near = savedNear;
+    camera.far = savedFar;
+    camera.aspect = savedAspect;
+    camera.updateProjectionMatrix();
+    controls.target.copy(savedTarget);
+    controls.update();
+    viewer.getViewBox().copy(savedViewBox);
+    viewer.renderOnce();
+  }
+}
+
 async function exportCurrent(format, options = {}) {
   if (format === 'png') {
     // View modes are an inspection aid. Exports always use the authored look.
-    return withNaturalPreview(() =>
-      viewer.capture({
+    return withNaturalPreview(() => {
+      const canCenter =
+        options.center && currentTree && Number.isFinite(options.width) && Number.isFinite(options.height);
+      if (canCenter) return captureCenteredPng(options);
+      return viewer.capture({
         scale: options.scale,
         width: options.width,
         height: options.height,
         transparent: options.transparent,
-      }),
-    );
+      });
+    });
   }
   if (!currentTree) throw new Error('The tree is still growing');
   const { exportTreeGLB } = await import('./export.js');

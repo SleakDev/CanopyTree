@@ -21,7 +21,7 @@ export async function generateTree(params) {
 
   const bounds = new THREE.Box3().setFromObject(group);
   const barkTriangles = bark.mesh.geometry.index ? bark.mesh.geometry.index.count / 3 : bark.mesh.geometry.attributes.position.count / 3;
-  const leafTriangles = (foliage.geometry.index ? foliage.geometry.index.count / 3 : foliage.geometry.attributes.position.count / 3) * foliage.leafCount;
+  const leafTriangles = foliage.triangles;
 
   return {
     group,
@@ -33,7 +33,7 @@ export async function generateTree(params) {
       leaves: foliage.leafCount,
       rosettes: foliage.rosetteCount,
       branches: skeleton.branches.length + 1,
-      vertices: bark.mesh.geometry.attributes.position.count + foliage.geometry.attributes.position.count * foliage.leafCount,
+      vertices: bark.mesh.geometry.attributes.position.count + foliage.vertices,
       triangles: Math.round(barkTriangles + leafTriangles),
       ms: performance.now() - startedAt,
     },

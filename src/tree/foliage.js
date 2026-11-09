@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { Rng } from '../rng.js';
+import { Rng, hashString } from '../rng.js';
 import { createNoise } from '../noise.js';
 
 const TAU = Math.PI * 2;
@@ -255,6 +255,37 @@ export function createFoliage(params, skeleton, seed) {
   ).normalize();
 
   const totalRosettes = Math.max(48, Math.round(quality.rosettes * params.leafDensity));
+
+  // Coverage is the share of leaves that receive a deformation. The per-leaf
+  // decision comes from the stateless noise field, not the rng stream, so
+  // changing coverage never reshuffles the rest of the foliage layout.
+  const coverage = {
+    droop: clamp((params.leafDroopApply ?? 100) / 100, 0, 1),
+    curl: clamp((params.leafCurlApply ?? 100) / 100, 0, 1),
+    fold: clamp((params.leafFoldApply ?? 100) / 100, 0, 1),
+    alignment: clamp((params.leafAlignmentApply ?? 100) / 100, 0, 1),
+    gravity: clamp((params.leafGravityApply ?? 100) / 100, 0, 1),
+  };
+  // A small integer hash keeps the split uniform and independent per setting.
+  // It is seeded once so different trees vary, but it never touches the rng
+  // stream that lays out the foliage.
+  const coverageSeed = hashString(`${seed}:foliage-coverage`);
+  const coverageHash = (leafIndex, salt) => {
+    let h = (coverageSeed + Math.imul(leafIndex + 1, 0x9e3779b1) + Math.imul(salt, 0x85ebca6b)) >>> 0;
+    h ^= h >>> 16;
+    h = Math.imul(h, 0x7feb352d);
+    h ^= h >>> 15;
+    h = Math.imul(h, 0x846ca68b);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+  const SALT = { droop: 1, curl: 2, fold: 3, alignment: 4, gravity: 5 };
+  const covers = (leafIndex, salt, amount) => {
+    if (amount >= 1) return true;
+    if (amount <= 0) return false;
+    return coverageHash(leafIndex, salt) < amount;
+  };
+
   const anchors = [];
   const rayDirection = new THREE.Vector3();
   const point = new THREE.Vector3();
@@ -405,15 +436,44 @@ export function createFoliage(params, skeleton, seed) {
     totalLeaves += leafCount;
   }
 
-  const leafGeometry = createLeafGeometry(quality.leafRows, params.leafCurl, params.leafFold);
+  const variantCounts = [0, 0, 0, 0];
+  for (let leafIndex = 0; leafIndex < totalLeaves; leafIndex++) {
+    const variant =
+      (covers(leafIndex, SALT.curl, coverage.curl) ? 1 : 0) |
+      (covers(leafIndex, SALT.fold, coverage.fold) ? 2 : 0);
+    variantCounts[variant] += 1;
+  }
+
   const leafTexture = createLeafTexture();
   const uniforms = [];
   const material = createFollicleMaterial(params, uniforms, leafTexture);
-  const mesh = new THREE.InstancedMesh(leafGeometry, material, totalLeaves);
-  mesh.name = 'leaves';
-  mesh.castShadow = false;
-  mesh.receiveShadow = false;
-  mesh.frustumCulled = false;
+
+  // Curl and fold live in the blade geometry, so leaves are grouped into four
+  // shape variants: neither, curl only, fold only, and both. Leaves are dealt
+  // into the variants by the coverage hashes above.
+  const leafGeometries = [0, 1, 2, 3].map((variant) => {
+    const curl = (variant & 1) !== 0 ? params.leafCurl : 0;
+    const fold = (variant & 2) !== 0 ? params.leafFold : 0;
+    return createLeafGeometry(quality.leafRows, curl, fold);
+  });
+  const meshes = [];
+  const slots = [];
+  for (let variant = 0; variant < 4; variant++) {
+    const count = variantCounts[variant];
+    if (count === 0) {
+      leafGeometries[variant].dispose();
+      leafGeometries[variant] = null;
+      slots[variant] = null;
+      continue;
+    }
+    const variantMesh = new THREE.InstancedMesh(leafGeometries[variant], material, count);
+    variantMesh.name = `leaves-${variant}`;
+    variantMesh.castShadow = false;
+    variantMesh.receiveShadow = false;
+    variantMesh.frustumCulled = false;
+    meshes.push(variantMesh);
+    slots[variant] = { mesh: variantMesh, next: 0 };
+  }
 
   const dummy = new THREE.Object3D();
   const region = Math.max(0.001, crown.crownTop - crown.crownBottom);
@@ -432,7 +492,7 @@ export function createFoliage(params, skeleton, seed) {
   // speckled.
   const alignment = clamp(params.leafAlignment ?? 0, 0, 1);
   const gravity = clamp(params.leafGravity ?? 0, 0, 1);
-  const chaos = 1 - alignment * 0.9;
+  const alignedChaos = 1 - alignment * 0.9;
   const radialNormal = new THREE.Vector3();
   const down = new THREE.Vector3(0, -1, 0);
   let index = 0;
@@ -446,11 +506,23 @@ export function createFoliage(params, skeleton, seed) {
     // follow the smooth shell. The 0.9 cap keeps a little clump character at
     // the tidy end instead of turning the crown into a perfect topiary ball.
     const follow = alignment * 0.9 * (1 - clamp(radialNormal.y, 0, 1) * 0.65);
-    const orientedNormal = anchor.normal.clone().lerp(radialNormal, follow).normalize();
-    const { n, t, b } = makeBasis(orientedNormal);
+    const shellNormal = anchor.normal.clone().lerp(radialNormal, follow).normalize();
+    const shellBasis = makeBasis(shellNormal);
+    const ownBasis = makeBasis(anchor.normal);
     const rosetteScale = params.leafSize * anchor.size;
 
     for (let k = 0; k < anchor.leafCount; k++) {
+      const aligned = covers(index, SALT.alignment, coverage.alignment);
+      const { n, t, b } = aligned ? shellBasis : ownBasis;
+      const chaos = aligned ? alignedChaos : 1;
+      const droop = covers(index, SALT.droop, coverage.droop) ? params.leafDroop : 0;
+      const gravityHere = covers(index, SALT.gravity, coverage.gravity) ? gravity : 0;
+      const variant =
+        (covers(index, SALT.curl, coverage.curl) ? 1 : 0) |
+        (covers(index, SALT.fold, coverage.fold) ? 2 : 0);
+      const slot = slots[variant];
+      const target = slot.mesh;
+      const instance = slot.next++;
       const azimuth = (k / anchor.leafCount) * TAU + rng.range(-0.18, 0.18) * chaos;
       const tangential = new THREE.Vector3()
         .addScaledVector(t, Math.cos(azimuth))
@@ -463,16 +535,16 @@ export function createFoliage(params, skeleton, seed) {
         .multiplyScalar(1 + (rng.range(0.82, 1.03) - 1) * chaos)
         .addScaledVector(n, 0.16 + rng.range(0, 0.3) * chaos)
         .normalize();
-      direction.y -= params.leafDroop * (0.4 + rng.range(-0.22, 0.22) * chaos) * 0.64;
+      direction.y -= droop * (0.4 + rng.range(-0.22, 0.22) * chaos) * 0.64;
       direction.normalize();
 
       // Gravity blends the blade's length axis toward hanging straight down.
       // Only the base-to-tip direction rotates, so the stem stays pinned to the
       // branch. The jitter is hashed from the leaf index so moving the slider
       // changes only the sag, never the rest of the foliage layout.
-      if (gravity > 0) {
+      if (gravityHere > 0) {
         const sagJitter = 0.85 + noise.n01(index * 0.731, anchor.position.x * 3.1, anchor.position.z * 3.1) * 0.3;
-        direction.lerp(down, gravity * 0.55 * sagJitter).normalize();
+        direction.lerp(down, gravityHere * 0.55 * sagJitter).normalize();
       }
 
       face.copy(n).addScaledVector(direction, -n.dot(direction));
@@ -493,7 +565,7 @@ export function createFoliage(params, skeleton, seed) {
         .addScaledVector(tangential, offset)
         .addScaledVector(n, rng.range(0.015, 0.05) * rosetteScale + 0.012)
         .addScaledVector(direction, rng.range(0, 0.05));
-      position.y -= rng.range(0, 0.04) * params.leafDroop;
+      position.y -= rng.range(0, 0.04) * droop;
 
       const leafScale = rosetteScale * rng.range(0.92, 1.08);
       scale.set(leafScale * rng.range(0.9, 1.1), leafScale * rng.range(0.94, 1.08), leafScale);
@@ -502,7 +574,7 @@ export function createFoliage(params, skeleton, seed) {
       dummy.quaternion.copy(quaternion);
       dummy.scale.copy(scale);
       dummy.updateMatrix();
-      mesh.setMatrixAt(index, dummy.matrix);
+      target.setMatrixAt(instance, dummy.matrix);
 
       // Sunlight falls on the top and on the upper-left face of the crown;
       // leaves deeper inside stay a richer, darker green.
@@ -521,23 +593,42 @@ export function createFoliage(params, skeleton, seed) {
       const saturation = clamp(params.leafSaturation * (0.76 + exposure * 0.18) * rng.range(0.96, 1.04), 0.25, 1.15);
       const lightness = clamp(0.13 + Math.pow(exposure, 1.12) * 0.45 + rng.range(-0.015, 0.02), 0.12, 0.56);
       color.setHSL((((hue % 360) + 360) % 360) / 360, saturation, lightness, THREE.SRGBColorSpace);
-      mesh.setColorAt(index, color);
+      target.setColorAt(instance, color);
 
       index += 1;
     }
   }
 
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  for (const variantMesh of meshes) {
+    variantMesh.instanceMatrix.needsUpdate = true;
+    if (variantMesh.instanceColor) variantMesh.instanceColor.needsUpdate = true;
+  }
+
+  const leafGroup = new THREE.Group();
+  leafGroup.name = 'leaves';
+  for (const variantMesh of meshes) leafGroup.add(variantMesh);
+
+  let leafTriangles = 0;
+  let leafVertices = 0;
+  for (const variantMesh of meshes) {
+    const variantGeometry = variantMesh.geometry;
+    const vertexCount = variantGeometry.getAttribute('position').count;
+    const triangleCount = (variantGeometry.index ? variantGeometry.index.count : vertexCount) / 3;
+    leafTriangles += triangleCount * variantMesh.count;
+    leafVertices += vertexCount * variantMesh.count;
+  }
 
   const core = createCrownCore(crown, seed, fork, params);
 
   return {
-    mesh,
+    mesh: leafGroup,
+    meshes,
     core,
     material,
     texture: leafTexture,
-    geometry: leafGeometry,
+    geometry: meshes[0]?.geometry ?? null,
+    vertices: leafVertices,
+    triangles: leafTriangles,
     uniforms,
     leafCount: totalLeaves,
     rosetteCount: anchors.length,

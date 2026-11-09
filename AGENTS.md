@@ -85,7 +85,7 @@ To add or change a parameter, keep all of these consistent:
 
 1. `DEFAULTS` (default value).
 2. `PARAM_META` (label, range/step/decimals/unit/hint, or `type: 'toggle' | 'options'`).
-3. The relevant `PARAM_GROUPS` entry, and optionally `QUICK_CONTROLS`.
+3. The relevant `PARAM_GROUPS` entry.
 4. Consumer code (`skeleton.js`, `bark.js`, `foliage.js`, `scene.js`, `main.js`).
 5. Any preset overrides in `PRESET_OVERRIDES` if it should affect a built-in look.
 6. `README.md` if the control is user-facing.
@@ -183,6 +183,10 @@ PNG export is rendered at fixed pixel sizes, independent of the window or pane s
 - Renders, reads the data URL, then restores the live renderer size, pixel ratio, and
   camera aspect.
 - Falls back to the legacy `scale` path for internal thumbnails.
+- `Center tree` (`exportCurrent` → `captureCenteredPng`) matches the camera aspect to
+  the output size, calls `viewer.frame(bounds)` for an F-key fit, captures, then
+  restores the saved camera position, target, near/far, aspect, and view box. The live
+  orbit must never be left changed after an export.
 
 PNG choices exposed by the UI:
 
@@ -192,8 +196,10 @@ PNG choices exposed by the UI:
 | 16:9 | 1920×1080, 2560×1440, 3840×2160 |
 | Match view | 1024 / 2048 / 4096 wide at the live viewport aspect |
 
-Default is **Square 2048×2048**. Transparent mode hides the backdrop, floor, and
-contact shadows. Exports always use natural materials and the remeshed bark.
+Default is **Square 2048×2048**. The PNG **Framing** choice is **Current view**
+(default) or **Center tree** (F-key fit, restored afterward). Transparent mode hides
+the backdrop, floor, and contact shadows. Exports always use natural materials and the
+remeshed bark.
 
 GLB export (`src/export.js`, lazy-loaded) bakes leaf instances into one indexed mesh
 and includes `TrunkAndBranches`, `Foliage`, and `CanopyCore`. It intentionally excludes
@@ -215,7 +221,9 @@ do not reintroduce viewport-dependent output.
 - Verify mobile changes at a narrow viewport (about 420 px), including tab clicks,
   close, scrim tap, and focus behavior.
 - Preserve touch targets and safe-area insets (`env(safe-area-inset-bottom)`).
-- The loading overlay is centered in the viewport and covers long rebuilds.
+- The loading overlay is centered in the viewport and covers long rebuilds. While the
+  mobile sheet is open it is hidden, so it cannot ghost through the translucent panel;
+  the panel footer carries the busy state instead.
 
 ### 9. Persistence
 
@@ -238,8 +246,12 @@ format changes.
 
 ### 10. Rendering and performance
 
-- Foliage is one `InstancedMesh` with frustum culling disabled because instance bounds
-  are large.
+- Foliage is one or more `InstancedMesh` objects under a `Group`, with frustum culling
+  disabled because instance bounds are large. Curl/fold coverage can split it into up
+  to four shape variants (one draw call each).
+- Leaf coverage decisions use a separate integer hash seeded from the tree seed, never
+  the generation `Rng` stream, so changing a coverage slider cannot reshuffle the
+  foliage layout.
 - Default builds target roughly 60–160 ms and ~4,000–6,000 leaves. Avoid work that
   scales badly per leaf (per-instance geometry, per-frame allocations).
 - Reuse scratch vectors/objects in hot loops where practical.
@@ -283,7 +295,7 @@ format changes.
 
 1. Add an entry to `PRESET_OVERRIDES` with `name`, `blurb`, `seed`, `tone`, and
    `values` (only overrides of `DEFAULTS`).
-2. Keep the six-preset keyboard mapping in mind; the rail and `1`–`6` shortcuts are
+2. Keep the seven-preset keyboard mapping in mind; the rail and `1`–`7` shortcuts are
    position-based.
 3. Thumbnails are generated live; do not commit image files for them.
 

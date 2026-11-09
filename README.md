@@ -14,9 +14,9 @@ studio backdrop. Look, tune, share, and export it as PNG or GLB.
 - **Seeded & deterministic** — the same seed + parameters always produce the same tree.
 - **Live controls** — trunk, limbs, crown, leaves, and scene sliders rebuild the tree
   in place (typically 60–160 ms).
-- **Six presets** — Reference Oak, Lush Broadleaf, Young Sapling, Windblown, Bonsai,
-  and Autumn, each with its own seed and palette. Preset cards show live-rendered
-  thumbnails.
+- **Seven presets** — Reference Oak, Lush Broadleaf, Young Sapling, Windblown, Bonsai,
+  Autumn, and Cherry Blossom, each with its own seed and palette. Preset cards show
+  live-rendered thumbnails.
 - **Instanced foliage** — thousands of individually curved, textured leaf cards arranged
   in rosettes, with per-leaf color variation, a wind shader, and quality-based LOD.
 - **Studio scene** — warm-gray gradient backdrop, three-point lighting, soft baked
@@ -54,23 +54,24 @@ to `127.0.0.1:5173`.
 
 - **Seed** — edit the seed text to jump to a specific tree, use the refresh button to
   regenerate the same seed, or press the dice for a new seed.
-- **Sliders** — the panel shows the most-used controls first; expand **Advanced
-  controls** for tabs covering trunk, limbs, crown, leaves, and scene. **Leaf
-  alignment** under Leaves controls how tightly the foliage follows one canopy
-  shell versus each clump fanning out on its own, and **Leaf gravity** sags the
-  blades toward the ground.
-- **Presets** — pick a look from the bottom rail (or keys `1`–`6`). Parameters can then
+- **Sliders** — the Customize panel is the advanced control set: its tabs cover trunk,
+  limbs, crown, leaves, voxel, and scene. **Leaf alignment** under Leaves controls how
+  tightly the foliage follows one canopy shell versus each clump fanning out on its
+  own, and **Leaf gravity** sags the blades toward the ground. The **coverage** sliders
+  next to droop, curl, fold, alignment, and gravity choose what share of leaves
+  receives each effect; the rest keep the untouched blade shape.
+- **Presets** — pick a look from the bottom rail (or keys `1`–`7`). Parameters can then
   be tuned freely.
 - **Save / import** — **Save** stores the current seed, shape, foliage, and scene as a
   named look in this browser. Saved looks sit after the built-ins, can be deleted from
   their card, and can be downloaded as JSON. **Import** reads a single preset, a list,
   or a downloaded library from a JSON file, so looks move between devices.
-- **View** — the View block at the top of the controls toggles **Hide leaves** and
-  **Hide branches**, and switches between **Natural**, **Gray** (untextured clay), and
-  **Wireframe** shading. Hiding leaves also hides the dark canopy core, so the branch
-  structure reads clearly. Modes are preview-only: they do not change parameters,
-  presets, URLs, or exported files, and the choice is remembered separately in the
-  browser.
+- **View** — the View pill on the left side of the stage starts collapsed; expand it
+  from its chevron. Its eye icon opens the visibility menu for **Leaves** and
+  **Branches**, and the shading icon switches between **Natural**, **Gray** (untextured
+  clay), and **Wireframe**. Hiding leaves also hides the dark canopy core, so the
+  branch structure reads clearly. Modes are preview-only: they do not change parameters, presets, URLs,
+  or exported files, and the choice is remembered separately in the browser.
 - **Voxelize** — the **Voxel** tab turns the trunk and selected branch levels into one
   solid volume and remeshes it, so every branch join is seamless. **Voxelize depth**
   chooses how many branch levels join the pass; deeper twigs stay as smooth tubes.
@@ -92,8 +93,10 @@ to `127.0.0.1:5173`.
   into the link that gets copied.
 - **Export** — PNG renders at a fixed standard size: Square 1024/2048/4096,
   16:9 1920×1080 / 2560×1440 / 3840×2160, or Match view (fixed width, current viewport
-  aspect). Square 2048×2048 is the default. GLB exports the tree geometry and
-  materials only (no backdrop or shadow planes).
+  aspect). Square 2048×2048 is the default. The PNG panel's **Framing** choice keeps
+  the **Current view** or uses **Center tree**, which fits the tree like the `F` key
+  and then restores your live camera. GLB exports the tree geometry and materials only
+  (no backdrop or shadow planes).
 
 ### Keyboard shortcuts
 
@@ -104,7 +107,7 @@ to `127.0.0.1:5173`.
 | `F` | Frame the tree |
 | `H` | Hide / show the interface |
 | `T` | Toggle turntable |
-| `1`–`6` | Switch presets |
+| `1`–`7` | Switch presets |
 | `E` | Open export |
 | `L` | Show / hide leaves |
 | `B` | Show / hide branches |
@@ -184,7 +187,11 @@ The pipeline lives in `src/tree/` and is intentionally separated into stages:
    smoothed crown shell and relaxes the orientation jitter, giving a spectrum from
    loose, random foliage to a neatly combed canopy. **Leaf gravity** then tips each
    blade's length axis toward the ground while its base stays attached, so the crown
-   can hang heavily without reshuffling the leaf layout.
+   can hang heavily without reshuffling the leaf layout. Each of droop, curl, fold,
+   alignment, and gravity also has a **coverage** slider that applies it to a
+   deterministic share of the leaves, so part of the crown can keep the untouched
+   shape. Curl and fold coverage split the foliage into up to four instanced shape
+   variants.
 
 5. **Assembly** (`src/tree/generate.js`)
    Bark, core, and instanced leaves are grouped, bounded, and measured. Every rebuild
@@ -210,7 +217,9 @@ thumbnails, and exports together.
   (1920×1080, 2560×1440, 3840×2160), or **Match view** (1024/2048/4096 wide at the
   current viewport aspect). The default is Square 2048×2048. The vertical field of
   view is preserved, so the tree keeps its framing and the horizontal crop adapts to
-  the chosen aspect. Transparent mode hides the backdrop and ground shadows.
+  the chosen aspect. **Center tree** frames the tree for the output aspect like the
+  `F` key, captures, then restores the live camera. Transparent mode hides the
+  backdrop and ground shadows.
 - **GLB** — leaf instances are baked into one indexed mesh so the model opens correctly
   in Blender, Unity, and three.js. The file includes:
   - `TrunkAndBranches` (bark map + bump map),
@@ -247,8 +256,9 @@ src/
 ## Performance
 
 - Default preset builds in roughly 60–160 ms and renders ~4,000–6,000 leaves.
-- Foliage uses `InstancedMesh` (one draw call for all leaves) with `frustumCulled`
-  disabled because the instance bounds are large.
+- Foliage uses `InstancedMesh` with `frustumCulled` disabled because the instance
+  bounds are large. It is one draw call normally, and up to four when curl/fold
+  coverage splits the crown into shape variants.
 - The dev build exposes `window.__canopy` with `viewer`, `tree`, `params`, `state`,
   `rebuild()`, `frame()`, `render()`, and `look(position, target)` for inspection.
 - Rebuilds are scheduled with `setTimeout` rather than `requestAnimationFrame`, so

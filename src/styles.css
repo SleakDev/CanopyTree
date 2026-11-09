@@ -515,65 +515,145 @@ svg {
 }
 
 .view-controls {
-  padding-bottom: 15px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--line);
-}
-
-.view-controls .section-label-row {
-  margin-bottom: 9px;
-}
-
-.view-toggles {
+  position: fixed;
+  top: 88px;
+  left: 16px;
+  z-index: 15;
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-sizing: border-box;
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(24px) saturate(1.15);
+  -webkit-backdrop-filter: blur(24px) saturate(1.15);
+  animation: rise-in 0.6s 0.04s var(--ease) both;
 }
 
-.view-toggle {
+.view-rail {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.view-icon,
+.view-collapse {
   display: inline-flex;
-  flex: 1 1 0;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-width: 0;
+  width: 32px;
   height: 32px;
-  padding: 0 7px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  font-size: 10px;
-  font-weight: 600;
-  white-space: nowrap;
+  border-radius: 50%;
   color: var(--muted);
-  background: transparent;
-  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+  transition: background 0.16s ease, color 0.16s ease;
 }
 
-.view-toggle svg {
-  flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-}
-
-.view-toggle:hover {
-  border-color: var(--line-strong);
+.view-icon:hover,
+.view-collapse:hover {
   background: var(--sunken);
   color: var(--ink);
 }
 
-.view-toggle[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--accent-strong);
+.view-icon.is-active {
   background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
-.view-modes {
-  margin-top: 2px;
+.view-icon svg,
+.view-collapse svg {
+  width: 18px;
+  height: 18px;
 }
 
-.view-modes button {
-  height: 27px;
-  font-size: 9.5px;
+.view-icon-eye-off {
+  display: none;
+}
+
+.view-icon.is-active .view-icon-eye {
+  display: none;
+}
+
+.view-icon.is-active .view-icon-eye-off {
+  display: block;
+}
+
+.view-collapse svg {
+  transition: transform 0.22s var(--ease);
+}
+
+.view-controls.is-collapsed .view-rail {
+  display: none;
+}
+
+.view-controls.is-collapsed .view-collapse svg {
+  transform: rotate(180deg);
+}
+
+.view-popover {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 158px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-panel);
+  animation: fade-in 0.16s ease both;
+}
+
+.view-popover[hidden] {
+  display: none;
+}
+
+#view-shading-menu {
+  top: 40px;
+}
+
+.view-popover > button,
+.view-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 550;
+  text-align: left;
+  color: var(--muted);
+}
+
+.view-popover > button:hover,
+.view-check:hover {
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+.view-popover > button.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.view-check input {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.view-check span {
+  flex: 1;
 }
 
 .control {
@@ -709,6 +789,13 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 50%;
   background: var(--surface-raised);
   box-shadow: 0 1px 4px rgba(20, 25, 14, 0.2);
+}
+
+/* With the quick controls gone, the toggle is the first thing in the panel. */
+.panel-scroll > .advanced-toggle:first-child {
+  margin-top: 0;
+  padding-top: 4px;
+  border-top: 0;
 }
 
 .advanced-toggle {
@@ -906,7 +993,7 @@ input[type="range"]::-moz-range-thumb {
 .looks {
   position: fixed;
   left: 16px;
-  right: 366px;
+  right: 16px;
   bottom: 16px;
   z-index: 14;
   padding: 11px 13px 12px;
@@ -1249,6 +1336,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .hint.is-hidden {
+  /* The entrance animation fills forwards, so its final opacity would keep
+     overriding this rule in a visible tab. Drop the animation when hiding. */
+  animation: none;
   opacity: 0;
   transform: translateX(-50%) translateY(6px);
 }
@@ -1278,10 +1368,6 @@ input[type="range"]::-moz-range-thumb {
     opacity: 0;
     pointer-events: none;
     transform: translateX(calc(100% + 28px));
-  }
-
-  body.panel-collapsed .looks {
-    right: 16px;
   }
 
   body.panel-collapsed .tune-fab {
@@ -1685,6 +1771,7 @@ kbd {
 /* -------------------------------------------------------------- ui hidden */
 
 .ui-hidden .topbar,
+.ui-hidden .view-controls,
 .ui-hidden .panel,
 .ui-hidden .looks,
 .ui-hidden .hint,
@@ -1850,6 +1937,11 @@ kbd {
     right: 16px;
   }
 
+  .view-controls {
+    top: 74px;
+    left: 10px;
+  }
+
   .panel {
     top: auto;
     left: 10px;
@@ -1902,27 +1994,36 @@ kbd {
 
   .tune-fab {
     position: fixed;
-    right: 16px;
-    bottom: calc(130px + env(safe-area-inset-bottom));
+    top: 74px;
+    right: 10px;
+    bottom: auto;
     z-index: 25;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    height: 38px;
-    padding: 0 14px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    gap: 6px;
+    height: 34px;
+    padding: 0 13px 0 11px;
+    border: 1px solid var(--line);
     border-radius: 99px;
-    background: var(--accent);
-    color: var(--accent-ink);
-    box-shadow: 0 12px 30px -12px rgba(30, 52, 15, 0.7);
-    font-size: 11px;
-    font-weight: 650;
-    animation: rise-in 0.5s 0.4s var(--ease) both;
+    background: var(--surface);
+    color: var(--muted);
+    box-shadow: var(--shadow-chrome);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    animation: fade-in 0.3s var(--ease) both;
+  }
+
+  .tune-fab:hover {
+    border-color: var(--line-strong);
+    color: var(--ink);
   }
 
   .tune-fab svg {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
   }
 
   body.panel-open .tune-fab {
@@ -1950,6 +2051,13 @@ kbd {
   body.panel-open .mobile-scrim {
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /* The sheet is translucent, so a busy veil behind it ghosts through the glass.
+     The panel footer already reports the build state. */
+  body.panel-open .loading-veil {
+    opacity: 0;
+    visibility: hidden;
   }
 
   .hint {
@@ -2068,9 +2176,9 @@ kbd {
   }
 
   .tune-fab {
-    bottom: calc(116px + env(safe-area-inset-bottom));
-    height: 36px;
-    padding: 0 13px;
+    top: 68px;
+    right: 8px;
+    bottom: auto;
   }
 
   .panel {
@@ -2109,7 +2217,25 @@ kbd {
   }
 }
 
+/* Tablet keeps the desktop position; phones get the tighter offsets below. */
+@media (min-width: 521px) and (max-width: 1120px) {
+  .view-controls {
+    top: 88px;
+    left: 16px;
+  }
+
+  .tune-fab {
+    top: 88px;
+    right: 16px;
+  }
+}
+
 @media (max-width: 520px) {
+  .view-controls {
+    top: 68px;
+    left: 8px;
+  }
+
   .brand-name {
     display: none;
   }

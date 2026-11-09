@@ -2,25 +2,25 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 /**
- * Convert thousands of leaf instances into one static geometry so the GLB
- * opens correctly in Blender, Unity, and other glTF viewers.
+ * Convert thousands of leaf instances from every shape variant into one static
+ * geometry so the GLB opens correctly in Blender, Unity, and other glTF viewers.
  */
-function bakeLeafInstances(geometry, instancedMesh) {
-  const sourcePosition = geometry.getAttribute('position');
-  const sourceNormal = geometry.getAttribute('normal');
-  const sourceUv = geometry.getAttribute('uv');
-  const sourceColor = geometry.getAttribute('color');
-  const sourceIndex = geometry.index;
-  const instanceCount = instancedMesh.count;
-  const baseVertexCount = sourcePosition.count;
-  const vertexCount = baseVertexCount * instanceCount;
-  const indexCount = (sourceIndex ? sourceIndex.count : baseVertexCount) * instanceCount;
+function bakeLeafMeshes(meshes) {
+  const pairs = meshes.map((mesh) => ({ geometry: mesh.geometry, mesh }));
+  let totalVertices = 0;
+  let totalIndices = 0;
+  for (const { geometry, mesh } of pairs) {
+    const baseVertexCount = geometry.getAttribute('position').count;
+    const baseIndexCount = geometry.index ? geometry.index.count : baseVertexCount;
+    totalVertices += baseVertexCount * mesh.count;
+    totalIndices += baseIndexCount * mesh.count;
+  }
 
-  const positions = new Float32Array(vertexCount * 3);
-  const normals = new Float32Array(vertexCount * 3);
-  const uvs = new Float32Array(vertexCount * 2);
-  const colors = new Float32Array(vertexCount * 3);
-  const indices = new Uint32Array(indexCount);
+  const positions = new Float32Array(totalVertices * 3);
+  const normals = new Float32Array(totalVertices * 3);
+  const uvs = new Float32Array(totalVertices * 2);
+  const colors = new Float32Array(totalVertices * 3);
+  const indices = new Uint32Array(totalIndices);
 
   const matrix = new THREE.Matrix4();
   const normalMatrix = new THREE.Matrix3();
@@ -31,56 +31,65 @@ function bakeLeafInstances(geometry, instancedMesh) {
   let vertexOffset = 0;
   let indexOffset = 0;
 
-  for (let instance = 0; instance < instanceCount; instance++) {
-    instancedMesh.getMatrixAt(instance, matrix);
-    normalMatrix.getNormalMatrix(matrix);
-    if (instancedMesh.instanceColor) {
-      instanceColor.fromBufferAttribute(instancedMesh.instanceColor, instance);
-    } else {
-      instanceColor.copy(white);
-    }
+  for (const { geometry, mesh } of pairs) {
+    const sourcePosition = geometry.getAttribute('position');
+    const sourceNormal = geometry.getAttribute('normal');
+    const sourceUv = geometry.getAttribute('uv');
+    const sourceColor = geometry.getAttribute('color');
+    const sourceIndex = geometry.index;
+    const baseVertexCount = sourcePosition.count;
 
-    for (let i = 0; i < baseVertexCount; i++) {
-      const p = vertexOffset + i;
-      vector.fromBufferAttribute(sourcePosition, i).applyMatrix4(matrix);
-      positions[p * 3] = vector.x;
-      positions[p * 3 + 1] = vector.y;
-      positions[p * 3 + 2] = vector.z;
-
-      vector.fromBufferAttribute(sourceNormal, i).applyMatrix3(normalMatrix).normalize();
-      normals[p * 3] = vector.x;
-      normals[p * 3 + 1] = vector.y;
-      normals[p * 3 + 2] = vector.z;
-
-      if (sourceUv) {
-        uvs[p * 2] = sourceUv.getX(i);
-        uvs[p * 2 + 1] = sourceUv.getY(i);
-      }
-
-      if (sourceColor) {
-        vertexColor.fromBufferAttribute(sourceColor, i).multiply(instanceColor);
-        colors[p * 3] = vertexColor.r;
-        colors[p * 3 + 1] = vertexColor.g;
-        colors[p * 3 + 2] = vertexColor.b;
+    for (let instance = 0; instance < mesh.count; instance++) {
+      mesh.getMatrixAt(instance, matrix);
+      normalMatrix.getNormalMatrix(matrix);
+      if (mesh.instanceColor) {
+        instanceColor.fromBufferAttribute(mesh.instanceColor, instance);
       } else {
-        colors[p * 3] = instanceColor.r;
-        colors[p * 3 + 1] = instanceColor.g;
-        colors[p * 3 + 2] = instanceColor.b;
+        instanceColor.copy(white);
       }
-    }
 
-    if (sourceIndex) {
-      for (let i = 0; i < sourceIndex.count; i++) {
-        indices[indexOffset + i] = sourceIndex.getX(i) + vertexOffset;
-      }
-      indexOffset += sourceIndex.count;
-    } else {
       for (let i = 0; i < baseVertexCount; i++) {
-        indices[indexOffset + i] = i + vertexOffset;
+        const p = vertexOffset + i;
+        vector.fromBufferAttribute(sourcePosition, i).applyMatrix4(matrix);
+        positions[p * 3] = vector.x;
+        positions[p * 3 + 1] = vector.y;
+        positions[p * 3 + 2] = vector.z;
+
+        vector.fromBufferAttribute(sourceNormal, i).applyMatrix3(normalMatrix).normalize();
+        normals[p * 3] = vector.x;
+        normals[p * 3 + 1] = vector.y;
+        normals[p * 3 + 2] = vector.z;
+
+        if (sourceUv) {
+          uvs[p * 2] = sourceUv.getX(i);
+          uvs[p * 2 + 1] = sourceUv.getY(i);
+        }
+
+        if (sourceColor) {
+          vertexColor.fromBufferAttribute(sourceColor, i).multiply(instanceColor);
+          colors[p * 3] = vertexColor.r;
+          colors[p * 3 + 1] = vertexColor.g;
+          colors[p * 3 + 2] = vertexColor.b;
+        } else {
+          colors[p * 3] = instanceColor.r;
+          colors[p * 3 + 1] = instanceColor.g;
+          colors[p * 3 + 2] = instanceColor.b;
+        }
       }
-      indexOffset += baseVertexCount;
+
+      if (sourceIndex) {
+        for (let i = 0; i < sourceIndex.count; i++) {
+          indices[indexOffset + i] = sourceIndex.getX(i) + vertexOffset;
+        }
+        indexOffset += sourceIndex.count;
+      } else {
+        for (let i = 0; i < baseVertexCount; i++) {
+          indices[indexOffset + i] = i + vertexOffset;
+        }
+        indexOffset += baseVertexCount;
+      }
+      vertexOffset += baseVertexCount;
     }
-    vertexOffset += baseVertexCount;
   }
 
   const baked = new THREE.BufferGeometry();
@@ -122,7 +131,7 @@ export async function exportTreeGLB(tree) {
   barkMesh.name = 'TrunkAndBranches';
   group.add(barkMesh);
 
-  const leafGeometry = bakeLeafInstances(tree.foliage.geometry, tree.foliage.mesh);
+  const leafGeometry = bakeLeafMeshes(tree.foliage.meshes);
   const leafMaterial = new THREE.MeshStandardMaterial({
     name: 'Leaves',
     map: tree.foliage.texture,
