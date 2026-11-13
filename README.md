@@ -1,13 +1,16 @@
 # CanopyTree — Procedural Tree Studio
 
+**[canopytree.sleakgames.com](https://canopytree.sleakgames.com)** — the live studio.
+
 A browser-based, deterministic **stylized tree generator** built with three.js and Vite.
 Every tree is produced from a seed plus a small set of shape parameters: buttressed
 trunk, forked limbs, rounded leaf clusters, star-shaped leaf rosettes, and a warm
 studio backdrop. Look, tune, share, and export it as PNG or GLB.
 
-![Stylized tree reference](photo_2026-10-13_22-17-07.jpg)
+![The CanopyTree studio: a seeded tree on the lit stage, advanced controls on the right, and the preset rail along the bottom](docs/canopytree-screenshot.png)
 
-*Reference look that guided the default "Reference Oak" preset.*
+*The CanopyTree studio — seeded tree on the lit stage, advanced controls on the right,
+and the preset rail along the bottom.*
 
 ## Features
 
@@ -34,6 +37,9 @@ studio backdrop. Look, tune, share, and export it as PNG or GLB.
   controls, keyboard shortcuts, and a help guide.
 
 ## Quick start
+
+Open the hosted app at **[canopytree.sleakgames.com](https://canopytree.sleakgames.com)**,
+or run it locally:
 
 ```bash
 npm install
@@ -236,6 +242,8 @@ thumbnails, and exports together.
 ```
 index.html
 vite.config.js
+docs/
+  canopytree-screenshot.png   studio screenshot used above
 src/
   main.js          app bootstrap, rebuild loop, dev hook
   state.js         defaults, presets, parameter metadata, URL state
